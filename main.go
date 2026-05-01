@@ -80,6 +80,7 @@ func main() {
 		r.Post("/auth/change-password", authHandler.ChangePassword)
 		r.Put("/users/interests", authHandler.UpdateInterests)
 		r.Post("/thoughts", thoughtHandler.Create)
+		r.Delete("/thoughts/{id}", thoughtHandler.Delete)
 	})
 
 	server := &http.Server{
