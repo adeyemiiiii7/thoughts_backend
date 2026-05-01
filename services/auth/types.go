@@ -1,5 +1,11 @@
 package auth
 
+import (
+	"time"
+
+	"thoughts_backend_api/models"
+)
+
 type signupRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -27,4 +33,14 @@ type changePasswordRequest struct {
 
 type updateInterestsRequest struct {
 	Interests []string `json:"interests"`
+}
+
+type profileResponse struct {
+	ID            uint              `json:"id"`
+	Username      string            `json:"username"`
+	Email         string            `json:"email"`
+	EmailVerified bool              `json:"email_verified"`
+	Interests     []models.Interest `json:"interests"`
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
 }

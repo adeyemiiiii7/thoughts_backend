@@ -35,6 +35,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// We attach the logged-in user's ID so the thought knows its owner.
 	thought := models.Thought{
 		UserID:  user.ID,
 		Title:   req.Title,

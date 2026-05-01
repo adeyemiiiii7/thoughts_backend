@@ -12,6 +12,8 @@ import (
 
 	"thoughts_backend_api/db"
 	"thoughts_backend_api/services/auth"
+	"thoughts_backend_api/services/comments"
+	"thoughts_backend_api/services/reactions"
 	"thoughts_backend_api/services/thoughts"
 	"thoughts_backend_api/shared"
 )
@@ -50,6 +52,8 @@ func main() {
 
 	r := chi.NewRouter()
 	authHandler := auth.NewHandler(gormDB, jwtSecret)
+	commentHandler := comments.NewHandler(gormDB)
+	reactionHandler := reactions.NewHandler(gormDB)
 	thoughtHandler := thoughts.NewHandler(gormDB)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Thoughts backend with GORM is running"))
@@ -73,6 +77,7 @@ func main() {
 	r.Post("/auth/reset-password", authHandler.ResetPassword)
 	r.Get("/auth/verify-email", authHandler.VerifyEmail)
 	r.Get("/thoughts", thoughtHandler.List)
+	r.Get("/thoughts/{id}/comments", commentHandler.ListByThought)
 
 	r.Group(func(r chi.Router) {
 		r.Use(shared.AuthMiddleware(gormDB, []byte(jwtSecret)))
@@ -80,6 +85,9 @@ func main() {
 		r.Post("/auth/change-password", authHandler.ChangePassword)
 		r.Put("/users/interests", authHandler.UpdateInterests)
 		r.Post("/thoughts", thoughtHandler.Create)
+		r.Post("/thoughts/{id}/comments", commentHandler.Create)
+		r.Post("/thoughts/{id}/reactions", reactionHandler.CreateOrUpdate)
+		r.Post("/comments/{id}/replies", commentHandler.ReplyComment)
 		r.Delete("/thoughts/{id}", thoughtHandler.Delete)
 	})
 

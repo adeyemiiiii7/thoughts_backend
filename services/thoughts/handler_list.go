@@ -9,6 +9,8 @@ import (
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	var thoughts []models.Thought
+	// Preload works a bit like "include" in Prisma or Sequelize.
+	// We are asking GORM to return each thought together with its related data.
 	if err := h.db.
 		Preload("User").
 		Preload("Comments").

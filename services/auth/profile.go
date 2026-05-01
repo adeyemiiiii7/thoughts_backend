@@ -22,7 +22,7 @@ func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, currentUser)
+	writeJSON(w, http.StatusOK, newProfileResponse(currentUser))
 }
 
 func (h *Handler) UpdateInterests(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +61,19 @@ func (h *Handler) UpdateInterests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, currentUser)
+	writeJSON(w, http.StatusOK, newProfileResponse(currentUser))
+}
+
+func newProfileResponse(user models.User) profileResponse {
+	return profileResponse{
+		ID:            user.ID,
+		Username:      user.Username,
+		Email:         user.Email,
+		EmailVerified: user.EmailVerified,
+		Interests:     user.Interests,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
+	}
 }
 
 func normalizeInterestNames(names []string) []string {
