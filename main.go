@@ -13,6 +13,7 @@ import (
 	"thoughts_backend_api/db"
 	"thoughts_backend_api/services/auth"
 	"thoughts_backend_api/services/comments"
+	"thoughts_backend_api/services/follows"
 	"thoughts_backend_api/services/reactions"
 	"thoughts_backend_api/services/thoughts"
 	"thoughts_backend_api/shared"
@@ -53,6 +54,7 @@ func main() {
 	r := chi.NewRouter()
 	authHandler := auth.NewHandler(gormDB, jwtSecret)
 	commentHandler := comments.NewHandler(gormDB)
+	followHandler := follows.NewHandler(gormDB)
 	reactionHandler := reactions.NewHandler(gormDB)
 	thoughtHandler := thoughts.NewHandler(gormDB)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +87,7 @@ func main() {
 		r.Get("/users/profile", authHandler.GetProfile)
 		r.Post("/auth/change-password", authHandler.ChangePassword)
 		r.Put("/users/interests", authHandler.UpdateInterests)
+		r.Post("/users/{id}/follow", followHandler.Follow)
 		r.Post("/thoughts", thoughtHandler.Create)
 		r.Put("/thoughts/{id}", thoughtHandler.Update)
 		r.Post("/thoughts/{id}/comments", commentHandler.Create)
@@ -93,6 +96,8 @@ func main() {
 		r.Delete("/comments/{id}", commentHandler.Delete)
 		r.Delete("/thoughts/{id}", thoughtHandler.Delete)
 		r.Delete("/thoughts/{id}/reactions", reactionHandler.Delete)
+		r.Post("/users/{id}/follow", followHandler.Follow)
+
 
 	}) 
 
