@@ -94,6 +94,8 @@ func main() {
 		r.Put("/users/interests", authHandler.UpdateInterests)
 		r.Post("/users/{id}/follow", followHandler.Follow)
 		r.Delete("/users/{id}/follow", followHandler.Unfollow)
+		r.Get("/feed/following", thoughtHandler.FollowingFeed)
+		r.Get("/feed/fyp", thoughtHandler.FYPFeed)
 		r.Post("/thoughts", thoughtHandler.Create)
 		r.Put("/thoughts/{id}", thoughtHandler.Update)
 		r.Post("/thoughts/{id}/comments", commentHandler.Create)
