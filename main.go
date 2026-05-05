@@ -81,6 +81,8 @@ func main() {
 	r.Get("/thoughts", thoughtHandler.List)
 	r.Get("/thoughts/{id}/comments", commentHandler.ListByThought)
 	r.Get("/users/{id}/thoughts", thoughtHandler.ListByUser)
+	r.Get("/users/{id}/followers", followHandler.ListFollowers)
+	r.Get("/users/{id}/following", followHandler.ListFollowing)
 
 	r.Group(func(r chi.Router) {
 		r.Use(shared.AuthMiddleware(gormDB, []byte(jwtSecret)))
@@ -88,6 +90,7 @@ func main() {
 		r.Post("/auth/change-password", authHandler.ChangePassword)
 		r.Put("/users/interests", authHandler.UpdateInterests)
 		r.Post("/users/{id}/follow", followHandler.Follow)
+		r.Delete("/users/{id}/follow", followHandler.Unfollow)
 		r.Post("/thoughts", thoughtHandler.Create)
 		r.Put("/thoughts/{id}", thoughtHandler.Update)
 		r.Post("/thoughts/{id}/comments", commentHandler.Create)
@@ -96,10 +99,7 @@ func main() {
 		r.Delete("/comments/{id}", commentHandler.Delete)
 		r.Delete("/thoughts/{id}", thoughtHandler.Delete)
 		r.Delete("/thoughts/{id}/reactions", reactionHandler.Delete)
-		r.Post("/users/{id}/follow", followHandler.Follow)
-
-
-	}) 
+	})
 
 	server := &http.Server{
 		Addr:         ":" + port,
