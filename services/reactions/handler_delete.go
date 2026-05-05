@@ -1,4 +1,5 @@
 package reactions
+
 import (
 	"net/http"
 	"strconv"
@@ -17,27 +18,27 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	reactionIDParam := chi.URLParam(r, "id")
-	reactionID, err := strconv.ParseUint(reactionIDParam, 10, 64)
+
+	thoughtIDParam := chi.URLParam(r, "id")
+	thoughtID, err := strconv.ParseUint(thoughtIDParam, 10, 64)
 	if err != nil {
 		shared.RespondJSON(w, http.StatusBadRequest, map[string]string{
-			"error": "invalid reaction id",
+			"error": "invalid thought id",
 		})
 		return
 	}
+
 	var reaction models.Reaction
-	if err := h.db.First(&reaction, uint(reactionID)).Error; err != nil {
+	// A user can only have one reaction per thought
+	if err := h.db.
+		Where("thought_id = ? AND user_id = ?", uint(thoughtID), user.ID).
+		First(&reaction).Error; err != nil {
 		shared.RespondJSON(w, http.StatusNotFound, map[string]string{
 			"error": "reaction not found",
 		})
 		return
 	}
-	if reaction.UserID != user.ID {
-		shared.RespondJSON(w, http.StatusForbidden, map[string]string{
-			"error": "you can only delete your own reactions",
-		})
-		return
-	}
+
 	if err := h.db.Delete(&reaction).Error; err != nil {
 		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
 			"error": "failed to delete reaction",

@@ -86,6 +86,7 @@ func main() {
 		r.Post("/auth/change-password", authHandler.ChangePassword)
 		r.Put("/users/interests", authHandler.UpdateInterests)
 		r.Post("/thoughts", thoughtHandler.Create)
+		r.Put("/thoughts/{id}", thoughtHandler.Update)
 		r.Post("/thoughts/{id}/comments", commentHandler.Create)
 		r.Post("/thoughts/{id}/reactions", reactionHandler.CreateOrUpdate)
 		r.Post("/comments/{id}/replies", commentHandler.ReplyComment)
