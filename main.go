@@ -16,6 +16,7 @@ import (
 	"thoughts_backend_api/services/follows"
 	"thoughts_backend_api/services/reactions"
 	"thoughts_backend_api/services/thoughts"
+	"thoughts_backend_api/services/users"
 	"thoughts_backend_api/shared"
 )
 
@@ -57,6 +58,7 @@ func main() {
 	followHandler := follows.NewHandler(gormDB)
 	reactionHandler := reactions.NewHandler(gormDB)
 	thoughtHandler := thoughts.NewHandler(gormDB)
+	userHandler := users.NewHandler(gormDB)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Thoughts backend with GORM is running"))
 	})
@@ -80,6 +82,7 @@ func main() {
 	r.Get("/auth/verify-email", authHandler.VerifyEmail)
 	r.Get("/thoughts", thoughtHandler.List)
 	r.Get("/thoughts/{id}/comments", commentHandler.ListByThought)
+	r.Get("/users/{id}", userHandler.GetProfile)
 	r.Get("/users/{id}/thoughts", thoughtHandler.ListByUser)
 	r.Get("/users/{id}/followers", followHandler.ListFollowers)
 	r.Get("/users/{id}/following", followHandler.ListFollowing)
