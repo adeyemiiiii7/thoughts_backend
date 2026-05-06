@@ -31,6 +31,8 @@ func InitDB(dbURL string) (*gorm.DB, error) {
 		&models.Thought{},
 		&models.Comment{},
 		&models.Reaction{},
+		&models.Conversation{},
+		&models.Message{},
 		&models.EmailVerificationToken{},
 		&models.PasswordResetToken{},
 	); err != nil {

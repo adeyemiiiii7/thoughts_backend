@@ -14,6 +14,7 @@ import (
 	"thoughts_backend_api/services/auth"
 	"thoughts_backend_api/services/comments"
 	"thoughts_backend_api/services/follows"
+	"thoughts_backend_api/services/messages"
 	"thoughts_backend_api/services/reactions"
 	"thoughts_backend_api/services/thoughts"
 	"thoughts_backend_api/services/users"
@@ -56,9 +57,12 @@ func main() {
 	authHandler := auth.NewHandler(gormDB, jwtSecret)
 	commentHandler := comments.NewHandler(gormDB)
 	followHandler := follows.NewHandler(gormDB)
+	messageHub := messages.NewHub()
+	messageHandler := messages.NewHandler(gormDB, messageHub, []byte(jwtSecret))
 	reactionHandler := reactions.NewHandler(gormDB)
 	thoughtHandler := thoughts.NewHandler(gormDB)
 	userHandler := users.NewHandler(gormDB)
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Thoughts backend with GORM is running"))
 	})
@@ -86,6 +90,7 @@ func main() {
 	r.Get("/users/{id}/thoughts", thoughtHandler.ListByUser)
 	r.Get("/users/{id}/followers", followHandler.ListFollowers)
 	r.Get("/users/{id}/following", followHandler.ListFollowing)
+	r.Get("/ws/messages", messageHandler.ServeWS)
 
 	r.Group(func(r chi.Router) {
 		r.Use(shared.AuthMiddleware(gormDB, []byte(jwtSecret)))
@@ -94,6 +99,9 @@ func main() {
 		r.Put("/users/interests", authHandler.UpdateInterests)
 		r.Post("/users/{id}/follow", followHandler.Follow)
 		r.Delete("/users/{id}/follow", followHandler.Unfollow)
+		r.Get("/conversations", messageHandler.ListConversations)
+		r.Get("/conversations/{id}/messages", messageHandler.ListMessages)
+		r.Post("/users/{id}/messages", messageHandler.Send)
 		r.Get("/feed/following", thoughtHandler.FollowingFeed)
 		r.Get("/feed/fyp", thoughtHandler.FYPFeed)
 		r.Post("/thoughts", thoughtHandler.Create)
