@@ -57,8 +57,6 @@ func (h *Handler) CreateOrUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var reaction models.Reaction
-	// One user should have only one reaction per thought.
-	// If one already exists, update it instead of creating a duplicate.
 	err = h.db.Where("thought_id = ? AND user_id = ?", thought.ID, user.ID).First(&reaction).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -90,12 +88,13 @@ func (h *Handler) CreateOrUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.db.Preload("User").First(&reaction, reaction.ID).Error; err != nil {
+	summary, err := buildReactionSummary(h.db, thought.ID, user.ID)
+	if err != nil {
 		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
-			"error": "failed to load reaction",
+			"error": "failed to load reaction summary",
 		})
 		return
 	}
 
-	shared.RespondJSON(w, http.StatusOK, reaction)
+	shared.RespondJSON(w, http.StatusOK, summary)
 }

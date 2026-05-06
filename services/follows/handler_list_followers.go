@@ -11,6 +11,8 @@ import (
 )
 
 func (h *Handler) ListFollowers(w http.ResponseWriter, r *http.Request) {
+	pagination := shared.ParsePagination(r)
+
 	userIDParam := chi.URLParam(r, "id")
 	userID, err := strconv.ParseUint(userIDParam, 10, 64)
 	if err != nil {
@@ -28,11 +30,21 @@ func (h *Handler) ListFollowers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var total int64
+	if err := h.db.Model(&models.Follow{}).Where("following_id = ?", user.ID).Count(&total).Error; err != nil {
+		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to count followers",
+		})
+		return
+	}
+
 	var follows []models.Follow
 	if err := h.db.
 		Where("following_id = ?", user.ID).
 		Preload("Follower").
 		Order("created_at DESC").
+		Offset(pagination.Offset).
+		Limit(pagination.Limit).
 		Find(&follows).Error; err != nil {
 		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
 			"error": "failed to load followers",
@@ -45,5 +57,5 @@ func (h *Handler) ListFollowers(w http.ResponseWriter, r *http.Request) {
 		followers = append(followers, follow.Follower)
 	}
 
-	shared.RespondJSON(w, http.StatusOK, followers)
+	shared.RespondJSON(w, http.StatusOK, shared.NewPaginatedResponse(followers, pagination, total))
 }

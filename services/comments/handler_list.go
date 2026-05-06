@@ -12,6 +12,8 @@ import (
 )
 
 func (h *Handler) ListByThought(w http.ResponseWriter, r *http.Request) {
+	pagination := shared.ParsePagination(r)
+
 	thoughtIDParam := chi.URLParam(r, "id")
 	thoughtID, err := strconv.ParseUint(thoughtIDParam, 10, 64)
 	if err != nil {
@@ -29,6 +31,16 @@ func (h *Handler) ListByThought(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var total int64
+	if err := h.db.Model(&models.Comment{}).
+		Where("thought_id = ? AND parent_comment_id IS NULL", thought.ID).
+		Count(&total).Error; err != nil {
+		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to count comments",
+		})
+		return
+	}
+
 	var comments []models.Comment
 	// This query means:
 	// 1. Only load top-level comments for this thought.
@@ -41,6 +53,8 @@ func (h *Handler) ListByThought(w http.ResponseWriter, r *http.Request) {
 			return db.Preload("User").Order("created_at ASC")
 		}).
 		Order("created_at ASC").
+		Offset(pagination.Offset).
+		Limit(pagination.Limit).
 		Find(&comments).Error; err != nil {
 		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
 			"error": "failed to load comments",
@@ -48,5 +62,5 @@ func (h *Handler) ListByThought(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shared.RespondJSON(w, http.StatusOK, comments)
+	shared.RespondJSON(w, http.StatusOK, shared.NewPaginatedResponse(comments, pagination, total))
 }

@@ -4,7 +4,6 @@ import (
 	"math/rand"
 	"net/http"
 	"sort"
-	"strconv"
 	"time"
 
 	"thoughts_backend_api/models"
@@ -25,7 +24,7 @@ func (h *Handler) FollowingFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := parseFeedLimit(r.URL.Query().Get("limit"))
+	pagination := shared.ParsePagination(r)
 
 	var followedIDs []uint
 	if err := h.db.Model(&models.Follow{}).
@@ -37,8 +36,18 @@ func (h *Handler) FollowingFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Keep own thoughts in the following feed too, so the home feed never feels empty.
 	authorIDs := append([]uint{user.ID}, followedIDs...)
+
+	var total int64
+	if err := h.db.Model(&models.Thought{}).Where("user_id IN ?", authorIDs).Count(&total).Error; err != nil {
+		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to count following feed",
+		})
+		return
+	}
+
+	candidateLimit := pagination.Limit * 3
+	candidateOffset := pagination.Offset * 3
 
 	var thoughts []models.Thought
 	if err := h.db.
@@ -47,7 +56,8 @@ func (h *Handler) FollowingFeed(w http.ResponseWriter, r *http.Request) {
 		Preload("Comments").
 		Preload("Reactions").
 		Order("created_at DESC").
-		Limit(limit * 3).
+		Offset(candidateOffset).
+		Limit(candidateLimit).
 		Find(&thoughts).Error; err != nil {
 		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
 			"error": "failed to load following feed",
@@ -55,8 +65,6 @@ func (h *Handler) FollowingFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Following feed is mostly chronological, but still lightly diversify authors
-	// so one person does not dominate the first screen.
 	candidates := make([]feedCandidate, 0, len(thoughts))
 	for _, thought := range thoughts {
 		score := recencyScore(thought.CreatedAt) + float64(len(thought.Comments)*2+len(thought.Reactions))
@@ -64,13 +72,15 @@ func (h *Handler) FollowingFeed(w http.ResponseWriter, r *http.Request) {
 			score += 40
 		}
 
-		candidates = append(candidates, feedCandidate{
-			thought: thought,
-			score:   score,
-		})
+		candidates = append(candidates, feedCandidate{thought: thought, score: score})
 	}
 
-	shared.RespondJSON(w, http.StatusOK, diversifyFeed(candidates, limit))
+	feed := diversifyFeed(candidates, pagination.Limit)
+	shared.RespondJSON(w, http.StatusOK, shared.NewPaginatedResponse(
+		buildThoughtResponses(feed, &user.ID),
+		pagination,
+		total,
+	))
 }
 
 func (h *Handler) FYPFeed(w http.ResponseWriter, r *http.Request) {
@@ -82,14 +92,15 @@ func (h *Handler) FYPFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := parseFeedLimit(r.URL.Query().Get("limit"))
-	candidateLimit := limit * 5
+	pagination := shared.ParsePagination(r)
+	candidateLimit := pagination.Limit * 5
 	if candidateLimit < 60 {
 		candidateLimit = 60
 	}
 	if candidateLimit > 180 {
 		candidateLimit = 180
 	}
+	candidateOffset := pagination.Offset * 5
 
 	var viewer models.User
 	if err := h.db.Preload("Interests").First(&viewer, user.ID).Error; err != nil {
@@ -109,13 +120,23 @@ func (h *Handler) FYPFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var total int64
+	if err := h.db.Model(&models.Thought{}).Where("user_id <> ?", viewer.ID).Count(&total).Error; err != nil {
+		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to count fyp feed",
+		})
+		return
+	}
+
 	var thoughts []models.Thought
 	if err := h.db.
 		Preload("User").
 		Preload("User.Interests").
 		Preload("Comments").
 		Preload("Reactions").
+		Where("user_id <> ?", viewer.ID).
 		Order("created_at DESC").
+		Offset(candidateOffset).
 		Limit(candidateLimit).
 		Find(&thoughts).Error; err != nil {
 		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
@@ -134,19 +155,12 @@ func (h *Handler) FYPFeed(w http.ResponseWriter, r *http.Request) {
 		followedSet[followedID] = struct{}{}
 	}
 
-	// FYP should feel more exploratory than the following feed.
-	// So:
-	// - exclude your own posts
-	// - give a small penalty to accounts you already follow
-	// - boost shared interests
-	// - add a little randomness so the page does not feel static
+	// FYP is intentionally more exploratory than Following.
+	// Shared interests are the strongest personalization signal here,
+	// while recency, engagement, and a small randomness factor keep the page fresh.
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	candidates := make([]feedCandidate, 0, len(thoughts))
 	for _, thought := range thoughts {
-		if thought.UserID == viewer.ID {
-			continue
-		}
-
 		sharedInterests := countSharedInterests(viewerInterestSet, thought.User.Interests)
 		engagementScore := len(thought.Comments)*2 + len(thought.Reactions)
 		if engagementScore > 20 {
@@ -167,29 +181,15 @@ func (h *Handler) FYPFeed(w http.ResponseWriter, r *http.Request) {
 			score += 15
 		}
 
-		candidates = append(candidates, feedCandidate{
-			thought: thought,
-			score:   score,
-		})
+		candidates = append(candidates, feedCandidate{thought: thought, score: score})
 	}
 
-	shared.RespondJSON(w, http.StatusOK, diversifyFeed(candidates, limit))
-}
-
-func parseFeedLimit(value string) int {
-	if value == "" {
-		return 20
-	}
-
-	limit, err := strconv.Atoi(value)
-	if err != nil || limit <= 0 {
-		return 20
-	}
-	if limit > 50 {
-		return 50
-	}
-
-	return limit
+	feed := diversifyFeed(candidates, pagination.Limit)
+	shared.RespondJSON(w, http.StatusOK, shared.NewPaginatedResponse(
+		buildThoughtResponses(feed, &user.ID),
+		pagination,
+		total,
+	))
 }
 
 func countSharedInterests(viewerInterestSet map[uint]struct{}, interests []models.Interest) int {

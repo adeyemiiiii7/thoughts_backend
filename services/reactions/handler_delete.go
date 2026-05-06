@@ -29,7 +29,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var reaction models.Reaction
-	// A user can only have one reaction per thought
 	if err := h.db.
 		Where("thought_id = ? AND user_id = ?", uint(thoughtID), user.ID).
 		First(&reaction).Error; err != nil {
@@ -45,8 +44,14 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	shared.RespondJSON(w, http.StatusOK, map[string]string{
-		"message": "reaction deleted successfully",
 
-	})
+	summary, err := buildReactionSummary(h.db, uint(thoughtID), user.ID)
+	if err != nil {
+		shared.RespondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": "failed to load reaction summary",
+		})
+		return
+	}
+
+	shared.RespondJSON(w, http.StatusOK, summary)
 }
